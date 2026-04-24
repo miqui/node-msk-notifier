@@ -1,0 +1,14 @@
+import pino from 'pino';
+import { config } from './config.js';
+
+export const logger = pino({
+  level: config.LOG_LEVEL,
+  ...(config.NODE_ENV !== 'production' && {
+    transport: { target: 'pino-pretty' },
+  }),
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
+  },
+});

@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-msk-notifier-api
+  namespace: notifications
+  labels:
+    app.kubernetes.io/name: node-msk-notifier-api
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-msk-notifier-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-msk-notifier-api
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: node-msk-notifier
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          # Image tag is replaced by CI/CD: kubectl set image deployment/...
+          image: PLACEHOLDER_ECR_REGISTRY/node-msk-notifier-api:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: node-msk-notifier-config
+            - secretRef:
+                name: node-msk-notifier-secrets
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        fsGroup: 1001

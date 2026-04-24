@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-msk-notifier-config
+  namespace: notifications
+  labels:
+    app.kubernetes.io/name: node-msk-notifier
+data:
+  AWS_REGION: "us-east-1"
+  KAFKA_TOPIC: "notifications"
+  KAFKA_GROUP_ID: "node-msk-notifier-consumer"
+  LOG_LEVEL: "info"
+  PORT: "3000"
+  NODE_ENV: "production"
+  # MSK_BROKERS and SNS_TOPIC_ARN are injected as Secrets (see secret.yaml.example)

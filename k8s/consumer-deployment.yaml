@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-msk-notifier-consumer
+  namespace: notifications
+  labels:
+    app.kubernetes.io/name: node-msk-notifier-consumer
+    app.kubernetes.io/component: consumer
+spec:
+  # Consumer replicas = Kafka partition count for optimal throughput.
+  # Default MSK topic partition count is typically 3 — adjust to match.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-msk-notifier-consumer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-msk-notifier-consumer
+        app.kubernetes.io/component: consumer
+    spec:
+      serviceAccountName: node-msk-notifier
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: consumer
+          image: PLACEHOLDER_ECR_REGISTRY/node-msk-notifier-consumer:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: node-msk-notifier-config
+            - secretRef:
+                name: node-msk-notifier-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        fsGroup: 1001
