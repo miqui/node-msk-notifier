@@ -1,43 +1,38 @@
 # syntax=docker/dockerfile:1
 
 # ── builder ────────────────────────────────────────────────────────────────────
-FROM public.ecr.aws/docker/library/node:22.11.0-bookworm-slim AS builder
+FROM node:22.11.0-bookworm-slim AS builder
 
 WORKDIR /app
 
-RUN corepack enable \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends dumb-init=1.2.5-2 \
-    && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile && pnpm prune --prod
 
 # ── runtime ────────────────────────────────────────────────────────────────────
-FROM public.ecr.aws/distroless/nodejs22-debian12:nonroot AS runtime
+FROM node:22.11.0-bookworm-slim AS runtime
 
 WORKDIR /app
 
-# dumb-init handles PID 1 signal forwarding and zombie reaping
-COPY --from=builder /usr/bin/dumb-init /usr/bin/dumb-init
+RUN groupadd --gid 1001 appgroup && \
+    useradd --uid 1001 --gid 1001 --shell /bin/bash --create-home appuser
 
-COPY --from=builder --chown=65532:65532 /app/node_modules ./node_modules
-COPY --chown=65532:65532 src/ ./src/
-COPY --chown=65532:65532 package.json ./
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --chown=appuser:appgroup src/ ./src/
+COPY --chown=appuser:appgroup package.json ./
 
 ENV NODE_ENV=production \
-    PORT=8000
+    PORT=3000
 
-LABEL org.opencontainers.image.base.name="public.ecr.aws/distroless/nodejs22-debian12:nonroot" \
-      org.opencontainers.image.source="https://github.com/miqui/node-msk-notifier"
+LABEL org.opencontainers.image.base.name="node:22.11.0-bookworm-slim" \
+      org.opencontainers.image.source="https://github.com/your-org/node-msk-notifier"
 
-EXPOSE 8000
+EXPOSE 3000
 
-# Exec form — no shell in the runtime image so CMD-string form won't work
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["/nodejs/bin/node", "-e", "fetch('http://localhost:8000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-USER nonroot
+USER appuser
 
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["/nodejs/bin/node", "src/api/index.js"]
+CMD ["node", "src/api/index.js"]
